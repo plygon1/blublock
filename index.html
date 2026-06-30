@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blublock</title>
+</head>
+<body>
+    <div class="logo"><img src="https://upload.wikimedia.org/wikipedia/commons/7/7a/Bluesky_Logo.svg"><span>&nbsp;Blublock</span></div>
+    <i>(Note that the times are UTC)</i>
+    <a style="bottom: -15px; right: -15px; position: fixed;" download="logs.json"></a>
+    <button style="bottom: 5px; right: 5px; position: fixed;">Save logs to .json</button>
+</body>
+<script>
+    var bottom = true;
+    var ws = new WebSocket("wss://jetstream1.us-east.bsky.network/subscribe");
+    var logs = [];
+    function isAtBottom(threshold = 2) {
+        return window.innerHeight + window.scrollY >= document.body.scrollHeight - threshold;
+    }
+    ws.onmessage = e=>{
+        var out = JSON.parse(e.data);
+        if (out["commit"]["collection"].endsWith("block")) {
+            var p = document.createElement("p");
+            fetch("https://plc.directory/"+out["did"]).then(f1=>{
+                f1.json().then(json1=>{
+                    fetch("https://plc.directory/"+out["commit"]["record"]["subject"]).then(f2=>{
+                        f2.json().then(json2=>{
+                            var a1 = document.createElement("a");
+                            a1.innerText = json1["alsoKnownAs"][0].replace("at://","");
+                            a1.href = "https://"+a1.innerText;
+                            var a2 = document.createElement("a");
+                            a2.innerText = json2["alsoKnownAs"][0].replace("at://","");
+                            a2.href = "https://"+a2.innerText;
+                            var div = document.createElement("span");
+                            div.innerText = " blocked ";
+                            var div2 = document.createElement("span");
+                            div2.innerText = " on "+out["commit"]["record"]["createdAt"];
+                            logs.push({"blocker":a1.innerText,"blocked":a2.innerText,"time":div2.innerText.replace(" on ","")});
+                            p.appendChild(a1);
+                            p.appendChild(div);
+                            p.appendChild(a2);
+                            p.appendChild(div2);
+                            bottom = isAtBottom();
+                            document.body.appendChild(p);
+                            if (bottom) {
+                                window.scrollTo(0, document.body.scrollHeight);
+                            }
+                        });
+                    });
+                });
+            });
+        }
+    };
+    document.querySelector("button").onclick = ()=>{
+        var a = document.querySelector("a");
+        var myFile = new Blob([JSON.stringify(logs, null, 4)], {type: "application/json"});
+        a.href = URL.createObjectURL(myFile);
+        a.click();
+    };
+</script>
+<style>
+    * {
+        font-family: Arial, Arial, Helvetica, sans-serif;
+    }
+    img {
+        height: 40px;
+    }
+    .logo {
+        display: flex;
+        flex-direction: row;
+        opacity: 0.6;
+    }
+    .logo>span {
+        font-size: 40px;
+        font-weight: bolder;
+    }
+</style>
+</html>
